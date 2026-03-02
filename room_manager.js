@@ -117,7 +117,7 @@ export class RoomManager {
     // ######################################################################
     async updateOnlineDuration(ws, userId, timestamp) {
         try {
-            const response = await fetch("http://127.0.0.1:4000/api/v1/studytime", {
+            await fetch("http://127.0.0.1:4000/api/v1/studytime", {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -128,8 +128,6 @@ export class RoomManager {
                     duration: timestamp
                 })
             });
-
-            const data = await response.json().catch(() => null);
         } catch (err) {
             console.error("Lỗi khi fetch:", err);
         }
