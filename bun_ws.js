@@ -6,7 +6,7 @@ import { IpLimiter } from "./ip_limiter.js";
 // # INIT MANAGERS
 // ##########################################################################
 const roomManager = new RoomManager();
-const ipLimiter = new IpLimiter(10);
+const ipLimiter = new IpLimiter(30);
 
 
 // ##########################################################################

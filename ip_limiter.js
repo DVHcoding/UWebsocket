@@ -4,7 +4,7 @@
 // ##########################################################################
 
 export class IpLimiter {
-    constructor(max = 10) {
+    constructor(max = 30) {
         this.map = new Map();
         this.max = max;
     }
