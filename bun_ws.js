@@ -96,13 +96,15 @@ Bun.serve({
                     // ##########################################################
                     case CLIENT_EVENTS.PREMIUM_ALERT: {
                         if (!ws.room) return;
-                        if (!data.targetUserId) return;
+                        if (!data.payload?.receiverId || !data.payload?.type) return;
 
-                        roomManager.sendPremiumAlert(
-                            ws.room,
-                            data.targetUserId,
-                            { message: data.message }
-                        );
+                        const { receiverId, type } = data.payload;
+
+                        roomManager.sendPremiumAlert(ws.room, receiverId, {
+                            _id: crypto.randomUUID(),
+                            receiver: receiverId,
+                            type,
+                        });
 
                         break;
                     }

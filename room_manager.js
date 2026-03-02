@@ -1,10 +1,34 @@
+
+
+import { CLIENT_EVENTS } from "./events.js";
+
 // ##########################################################################
 // # ROOM MANAGER
 // # - Quản lý toàn bộ room state trong memory
-// # - Xử lý join / leave
-// # - Gửi snapshot cho admin
-// # - Gửi premium alert theo userId
 // ##########################################################################
+
+/**
+ * @typedef {import("bun").ServerWebSocket<{ ip: string, cookie: string }>} BunWS
+ *
+ * type UserEntry = {
+ *   userId: string
+ *   role: string
+ *   joinTime: number
+ *   lastOnline: number | null
+ *   connections: number
+ *   sockets: Set<BunWS>  // tất cả tab/device của user này
+ * }
+ *
+ * interface Room {
+ *   users: Map<string, UserEntry>   // key: userId
+ * }
+ *
+ * Cấu trúc tổng:
+ * rooms: Map<roomId, Room>
+ *           └── users: Map<userId, UserEntry>
+ *                            └── sockets: Set<BunWS>  (multi-tab support)
+ */
+
 export class RoomManager {
     constructor() {
         this.rooms = new Map();
@@ -101,7 +125,10 @@ export class RoomManager {
             });
         }
 
-        const message = JSON.stringify(payload);
+        const message = JSON.stringify({
+            type: CLIENT_EVENTS.ADD_USER,
+            payload
+        });
 
         for (const entry of room.users.values()) {
             if (entry.role === "admin") {
@@ -136,16 +163,16 @@ export class RoomManager {
     // ######################################################################
     // # SEND PREMIUM ALERT TO SPECIFIC USER
     // ######################################################################
-    sendPremiumAlert(roomId, targetUserId, payload) {
+    sendPremiumAlert(roomId, receiverId, payload) {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
-        const entry = room.users.get(targetUserId);
+        const entry = room.users.get(receiverId);
         if (!entry) return;
 
         const message = JSON.stringify({
-            type: "PREMIUM_ALERT",
-            payload
+            type: CLIENT_EVENTS.PREMIUM_ALERT,
+            payload  // { _id, receiver, type }
         });
 
         for (const socket of entry.sockets) {
