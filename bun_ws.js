@@ -39,6 +39,7 @@ Bun.serve({
     },
 
     websocket: {
+        maxPayloadLength: 3 * 1024 * 1024,
         // ##################################################################
         // # HANDLE INCOMING MESSAGE
         // ##################################################################
@@ -79,8 +80,10 @@ Bun.serve({
                             message
                         };
 
-                        ws.send(JSON.stringify(payload));
-                        ws.publish(data.chatId, JSON.stringify(payload)); // gửi cho members khác
+                        const serialized = JSON.stringify(payload);
+
+                        ws.send(serialized);
+                        ws.publish(data.chatId, serialized); // gửi cho members khác
 
                         for (const receiverId of receiverIds) {
                             // Chỉ gửi notification nếu receiver không còn trong room
@@ -139,12 +142,12 @@ Bun.serve({
                     case CLIENT_EVENTS.REMOVE_USER: {
                         if (!data.roomId || !ws.rooms?.has(data.roomId)) return;
                         const roomId = data.roomId;
-                        await roomManager.softLeave(ws, roomId);
+                        roomManager.softLeave(ws, roomId);
                         break;
                     }
                 }
             } catch (err) {
-                console.error("[close] Unhandled error:", err);
+                console.error("Có lỗi xảy ra:", err);
             }
         },
 

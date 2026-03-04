@@ -125,7 +125,7 @@ export class RoomManager {
     // ######################################################################
     // # SOFTLEAVE ROOM
     // ######################################################################
-    async softLeave(ws, roomId) {
+    softLeave(ws, roomId) {
         if (!roomId) return;
 
         const room = this.rooms.get(roomId);
@@ -248,7 +248,6 @@ export class RoomManager {
     // ######################################################################
     async newNotification(ws, data) {
         try {
-            console.log("vao fetch")
             await fetch("http://127.0.0.1:4000/api/v1/notification/new", {
                 method: "POST",
                 headers: {
