@@ -108,8 +108,15 @@ export class RoomManager {
             entry.lastOnline = Date.now();
 
             const onlineDuration = entry.lastOnline - entry.joinTime;
+            const user_status_payload = {
+                userId: ws.userId,
+                lastOnline: new Date().toISOString()
+            }
 
-            await this.updateOnlineDuration(ws, ws.userId, onlineDuration);
+            await Promise.all([
+                this.updateOnlineDuration(ws, ws.userId, onlineDuration),
+                this.updateUserStatus(ws, user_status_payload)
+            ])
 
             room.users.delete(ws.userId);
         }
@@ -134,13 +141,15 @@ export class RoomManager {
         const entry = room.users.get(ws.userId);
         if (!entry) return;
 
-        entry.connections--;
+        // Xóa socket khỏi room
         entry.sockets.delete(ws);
 
-        if (entry.connections === 0) {
+        // Nếu không còn tab nào trong room → xóa user khỏi room
+        if (entry.sockets.size === 0) {
             room.users.delete(ws.userId);
         }
 
+        // Nếu room trống → xóa room
         if (room.users.size === 0) {
             this.rooms.delete(roomId);
         }
@@ -150,13 +159,12 @@ export class RoomManager {
     // ######################################################################
     // # SEND SNAPSHOT TO ADMINS
     // ######################################################################
-    sendUsersToAdmins(roomId) {
-        const room = this.rooms.get(roomId);
-        if (!room) return;
+    sendUsersToAdmins() {
+        const globalRoom = this.rooms.get("global");
+        if (!globalRoom) return;
 
         const payload = [];
-
-        for (const entry of room.users.values()) {
+        for (const entry of globalRoom.users.values()) {
             payload.push({
                 userId: entry.userId,
                 role: entry.role,
@@ -170,7 +178,7 @@ export class RoomManager {
             payload
         });
 
-        for (const entry of room.users.values()) {
+        for (const entry of globalRoom.users.values()) {
             if (entry.role === "admin") {
                 for (const socket of entry.sockets) {
                     socket.send(message);
@@ -184,27 +192,6 @@ export class RoomManager {
     // ######################################################################
     isUserInRoom(roomId, userId) {
         return this.rooms.get(roomId)?.users.has(userId) ?? false;
-    }
-
-    // ######################################################################
-    // # UPDATE DURATION FOR STUDYTIME
-    // ######################################################################
-    async updateOnlineDuration(ws, userId, timestamp) {
-        try {
-            await fetch("http://127.0.0.1:4000/api/v1/studytime", {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Cookie": ws.data.cookie || ""
-                },
-                body: JSON.stringify({
-                    userId,
-                    duration: timestamp
-                })
-            });
-        } catch (err) {
-            console.error("Lỗi khi fetch:", err);
-        }
     }
 
     // ######################################################################
@@ -255,6 +242,51 @@ export class RoomManager {
                     "Cookie": ws.data.cookie || ""
                 },
                 body: JSON.stringify(data)
+            });
+        } catch (err) {
+            console.error("Lỗi khi fetch:", err);
+        }
+    }
+
+
+    // ######################################################################
+    // # UPDATE DURATION FOR STUDYTIME
+    // ######################################################################
+    async updateOnlineDuration(ws, userId, timestamp) {
+        try {
+            await fetch("http://127.0.0.1:4000/api/v1/studytime", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                },
+                body: JSON.stringify({
+                    userId,
+                    duration: timestamp
+                })
+            });
+        } catch (err) {
+            console.error("Lỗi khi fetch:", err);
+        }
+    }
+
+
+    // ######################################################################
+    // # UPDATE LASTONLINE FOR USER
+    // ######################################################################
+    async updateUserStatus(ws, payload) {
+        try {
+            const { userId, lastOnline } = payload
+            await fetch("http://127.0.0.1:4000/api/v1/userstatus/lastonline", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                },
+                body: JSON.stringify({
+                    userId,
+                    lastOnline
+                })
             });
         } catch (err) {
             console.error("Lỗi khi fetch:", err);

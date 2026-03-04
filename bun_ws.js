@@ -57,7 +57,9 @@ Bun.serve({
                     case CLIENT_EVENTS.ADD_USER: {
                         if (!data.roomId || !data.payload) return;
                         await roomManager.join(ws, data.roomId, data.payload);
-                        roomManager.sendUsersToAdmins(data.roomId);
+                        if (data.roomId === 'global') {
+                            roomManager.sendUsersToAdmins();
+                        }
                         break;
                     }
 
@@ -109,6 +111,20 @@ Bun.serve({
                             }
                         }
 
+                        break;
+                    }
+
+                    // ##########################################################
+                    // # CHECK_STATUS
+                    // # - Kiểm tra xem receiver có online hay không 
+                    // ##########################################################
+                    case CLIENT_EVENTS.CHECK_STATUS: {
+                        if (!data.receiverId) return;
+                        const isOnline = roomManager.isUserInRoom("global", data.receiverId);
+                        ws.send(JSON.stringify({
+                            type: CLIENT_EVENTS.CHECK_STATUS,
+                            online_status: isOnline
+                        }));
                         break;
                     }
 
@@ -165,7 +181,12 @@ Bun.serve({
             if (ws.rooms?.size > 0) {
                 for (const roomId of [...ws.rooms]) {
                     roomManager.leave(ws, roomId)
-                        .then(() => roomManager.sendUsersToAdmins(roomId))
+                        .then(() => {
+                            // Chỉ update admin khi có thay đổi ở global
+                            if (roomId === "global") {
+                                roomManager.sendUsersToAdmins();
+                            }
+                        })
                         .catch(console.error);
                 }
             }
