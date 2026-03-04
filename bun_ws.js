@@ -42,7 +42,7 @@ Bun.serve({
         // ##################################################################
         // # HANDLE INCOMING MESSAGE
         // ##################################################################
-        message(ws, raw) {
+        async message(ws, raw) {
             try {
                 let data;
                 try { data = JSON.parse(raw); } catch { return; }
@@ -55,7 +55,7 @@ Bun.serve({
                     // ##########################################################
                     case CLIENT_EVENTS.ADD_USER: {
                         if (!data.roomId || !data.payload) return;
-                        roomManager.join(ws, data.roomId, data.payload);
+                        await roomManager.join(ws, data.roomId, data.payload);
                         roomManager.sendUsersToAdmins(data.roomId);
                         break;
                     }
@@ -64,25 +64,47 @@ Bun.serve({
                     // # MESSAGE
                     // # - Broadcast message tới toàn bộ room
                     // ##########################################################
-                    case CLIENT_EVENTS.MESSAGE: {
-                        if (!ws.room) return;
+                    case CLIENT_EVENTS.NEW_MESSAGE: {
+                        if (!ws.rooms?.has(data.chatId)) return;
+                        if (!data.chatId || !data.payload) return;
 
-                        const room = roomManager.rooms.get(ws.room);
-                        if (!room || !ws.userId) return;
+                        const { sender, message } = data.payload;
+                        const receiverIds = data.members.filter((id) => id !== sender);
 
-                        const entry = room.users.get(ws.userId);
-
-                        const message = {
-                            userId: ws.userId,
-                            joinTime: entry?.joinTime ?? null,
-                            lastOnline: entry?.lastOnline ?? null
+                        const payload = {
+                            _id: crypto.randomUUID(),
+                            type: CLIENT_EVENTS.NEW_MESSAGE,
+                            chatId: data.chatId,
+                            sender,
+                            message
                         };
 
-                        ws.publish(ws.room, JSON.stringify({
-                            type: CLIENT_EVENTS.MESSAGE,
-                            roomId: ws.room,
-                            payload: message
-                        }));
+                        ws.send(JSON.stringify(payload));
+                        ws.publish(data.chatId, JSON.stringify(payload)); // gửi cho members khác
+
+                        for (const receiverId of receiverIds) {
+                            // Chỉ gửi notification nếu receiver không còn trong room
+                            const isInRoom = roomManager.isUserInRoom(data.chatId, receiverId);
+                            if (isInRoom) continue;
+
+                            const notificationForDb = {
+                                _id: crypto.randomUUID(),
+                                sender,
+                                receiver: receiverId,
+                                content: "New Message",
+                                type: "new_message",
+                                relatedId: `/messages/${data.chatId}`,
+                            };
+
+                            roomManager
+                                .newNotification(ws, notificationForDb)
+                                .catch(console.error);
+
+                            const isOnline = roomManager.isUserInRoom("global", receiverId);
+                            if (isOnline) {
+                                roomManager.sendToUser("global", receiverId, payload);
+                            }
+                        }
 
                         break;
                     }
@@ -95,12 +117,12 @@ Bun.serve({
                     // # - Không broadcast toàn room
                     // ##########################################################
                     case CLIENT_EVENTS.PREMIUM_ALERT: {
-                        if (!ws.room) return;
+                        if (!data.roomId || !ws.rooms?.has(data.roomId)) return;
                         if (!data.payload?.receiverId || !data.payload?.type) return;
 
                         const { receiverId, type } = data.payload;
 
-                        roomManager.sendPremiumAlert(ws.room, receiverId, {
+                        roomManager.sendPremiumAlert(data.roomId, receiverId, {
                             _id: crypto.randomUUID(),
                             receiver: receiverId,
                             type,
@@ -113,14 +135,11 @@ Bun.serve({
                     // ##########################################################
                     // # REMOVE_USER
                     // # - Leave room
-                    // # - Gửi lại full user list cho admin
                     // ##########################################################
                     case CLIENT_EVENTS.REMOVE_USER: {
-                        if (!ws.room) return;
-
-                        const roomId = ws.room;
-                        roomManager.leave(ws);
-                        roomManager.sendUsersToAdmins(roomId);
+                        if (!data.roomId || !ws.rooms?.has(data.roomId)) return;
+                        const roomId = data.roomId;
+                        await roomManager.softLeave(ws, roomId);
                         break;
                     }
                 }
@@ -138,10 +157,14 @@ Bun.serve({
             const ip = ws.data?.ip;
             if (ip) ipLimiter.decrement(ip);
 
-            if (ws.room) {
-                const roomId = ws.room;
-                roomManager.leave(ws);
-                roomManager.sendUsersToAdmins(roomId);
+            // Duyệt toàn bộ room mà socket này đang subscribe
+            // [...ws.rooms] snapshot trước để tránh lỗi khi leave() xóa roomId khỏi ws.rooms trong lúc đang loop
+            if (ws.rooms?.size > 0) {
+                for (const roomId of [...ws.rooms]) {
+                    roomManager.leave(ws, roomId)
+                        .then(() => roomManager.sendUsersToAdmins(roomId))
+                        .catch(console.error);
+                }
             }
 
             console.log('Client disconnected')

@@ -1,5 +1,3 @@
-
-
 import { CLIENT_EVENTS } from "./events.js";
 
 // ##########################################################################
@@ -16,17 +14,36 @@ import { CLIENT_EVENTS } from "./events.js";
  *   joinTime: number
  *   lastOnline: number | null
  *   connections: number
- *   sockets: Set<BunWS>  // tất cả tab/device của user này
+ *   sockets: Set<BunWS>       // tất cả tab/device của user này
  * }
  *
  * interface Room {
  *   users: Map<string, UserEntry>   // key: userId
  * }
  *
+ * ws (BunWS) {
+ *   rooms: Set<roomId>        // tất cả room socket đang subscribe (thay ws.room cũ)
+ *   userId: string
+ *   data: { ip, cookie }
+ * }
+ *
  * Cấu trúc tổng:
  * rooms: Map<roomId, Room>
  *           └── users: Map<userId, UserEntry>
  *                            └── sockets: Set<BunWS>  (multi-tab support)
+ *
+ * ws.rooms: Set<roomId>       // ngược lại: từ socket biết đang ở room nào
+ *
+ * Ví dụ:
+ * rooms = {
+ *   "global":  { users: { "userA": { connections: 2, sockets: {ws1, ws2} } } }
+ *   "abc":     { users: { "userA": { connections: 1, sockets: {ws1} },
+ *                         "userB": { connections: 1, sockets: {ws3} } } }
+ * }
+ *
+ * ws1.rooms = Set { "global", "abc" }   ← tab 1 của userA
+ * ws2.rooms = Set { "global" }          ← tab 2 của userA
+ * ws3.rooms = Set { "abc" }             ← tab 1 của userB
  */
 
 export class RoomManager {
@@ -37,9 +54,8 @@ export class RoomManager {
     // ######################################################################
     // # JOIN ROOM
     // ######################################################################
-    join(ws, roomId, userPayload) {
+    async join(ws, roomId, userPayload) {
         if (typeof roomId !== "string" || !roomId) return;
-        if (ws.room) this.leave(ws);
 
         let room = this.rooms.get(roomId);
         if (!room) {
@@ -50,7 +66,7 @@ export class RoomManager {
         const { userId, role } = userPayload;
         if (!userId) return;
 
-        ws.room = roomId;
+        if (!ws.rooms) ws.rooms = new Set();
         ws.userId = userId;
 
         let entry = room.users.get(userId);
@@ -69,15 +85,14 @@ export class RoomManager {
 
         entry.connections++;
         entry.sockets.add(ws);
-
+        ws.rooms.add(roomId);
         ws.subscribe(roomId);
     }
 
     // ######################################################################
     // # LEAVE ROOM
     // ######################################################################
-    async leave(ws) {
-        const roomId = ws.room;
+    async leave(ws, roomId) {
         if (!roomId) return;
 
         const room = this.rooms.get(roomId);
@@ -104,8 +119,33 @@ export class RoomManager {
         }
 
         ws.unsubscribe(roomId);
-        ws.room = null;
+        ws.rooms.delete(roomId);
     }
+
+    // ######################################################################
+    // # SOFTLEAVE ROOM
+    // ######################################################################
+    async softLeave(ws, roomId) {
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        const entry = room.users.get(ws.userId);
+        if (!entry) return;
+
+        entry.connections--;
+        entry.sockets.delete(ws);
+
+        if (entry.connections === 0) {
+            room.users.delete(ws.userId);
+        }
+
+        if (room.users.size === 0) {
+            this.rooms.delete(roomId);
+        }
+    }
+
 
     // ######################################################################
     // # SEND SNAPSHOT TO ADMINS
@@ -137,6 +177,13 @@ export class RoomManager {
                 }
             }
         }
+    }
+
+    // ######################################################################
+    // # CHECK USER IN ROOM
+    // ######################################################################
+    isUserInRoom(roomId, userId) {
+        return this.rooms.get(roomId)?.users.has(userId) ?? false;
     }
 
     // ######################################################################
@@ -177,6 +224,41 @@ export class RoomManager {
 
         for (const socket of entry.sockets) {
             socket.send(message);
+        }
+    }
+
+    // ######################################################################
+    // # SEND TO SPECIFIC USER IN ROOM
+    // ######################################################################
+    sendToUser(roomId, userId, payload) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        const entry = room.users.get(userId);
+        if (!entry) return;
+
+        for (const socket of entry.sockets) {
+            socket.send(JSON.stringify(payload));
+        }
+    }
+
+
+    // ######################################################################
+    // # NEW NOTIFICATOIN
+    // ######################################################################
+    async newNotification(ws, data) {
+        try {
+            console.log("vao fetch")
+            await fetch("http://127.0.0.1:4000/api/v1/notification/new", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                },
+                body: JSON.stringify(data)
+            });
+        } catch (err) {
+            console.error("Lỗi khi fetch:", err);
         }
     }
 }
