@@ -106,10 +106,13 @@ Bun.serve({
                                 .catch(console.error);
 
                             const isOnline = roomManager.isUserInRoom("global", receiverId);
+
                             if (isOnline) {
                                 roomManager.sendToUser("global", receiverId, payload);
                             }
                         }
+
+                        console.log(message.attachments)
 
                         roomManager
                             .newMessageForDB(ws, {
@@ -145,12 +148,48 @@ Bun.serve({
                     // # - Kiểm tra xem receiver có online hay không 
                     // ##########################################################
                     case CLIENT_EVENTS.CHECK_STATUS: {
-                        if (!data.receiverId) return;
+                        if (!data.chatId || !data.receiverId || !data.sender || !ws.rooms?.has(data.chatId)) return;
+
                         const isOnline = roomManager.isUserInRoom("global", data.receiverId);
-                        ws.send(JSON.stringify({
+
+                        const payload = JSON.stringify({
                             type: CLIENT_EVENTS.CHECK_STATUS,
-                            online_status: isOnline
-                        }));
+                            online_status: isOnline,
+                            sender: data.sender,
+                            chatId: data.chatId
+                        });
+
+                        ws.send(payload);
+                        ws.publish(data.chatId, payload);
+
+                        break;
+                    }
+
+                    // ##########################################################
+                    // # CHECK_STATUS
+                    // # - Kiểm tra xem receiver có online hay không 
+                    // ##########################################################
+                    case CLIENT_EVENTS.SEEN_MESSAGE: {
+                        // ws chính là cái người nhận
+                        if (!data.chatId || !ws.rooms?.has(data.chatId)) return;
+                        if (!data.senderId) return;
+
+                        const payload = JSON.stringify({
+                            type: CLIENT_EVENTS.SEEN_MESSAGE,
+                            chatId: data.chatId,
+                            _id: crypto.randomUUID(),
+                            sender: data.senderId,
+                            seen: true,
+                        });
+
+                        ws.publish(data.chatId, payload)
+
+                        setTimeout(() => {
+                            roomManager
+                                .updateChatMessageStatus(ws, data.chatId)
+                                .catch(console.error)
+                        }, 1000)
+
                         break;
                     }
 

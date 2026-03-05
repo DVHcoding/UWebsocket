@@ -248,6 +248,31 @@ export class RoomManager {
         }
     }
 
+    // ######################################################################
+    // # NEW MESSAGE AND UPDATE DATABASE
+    // ######################################################################
+    async newMessageForDB(ws, payload) {
+        try {
+            console.log('vao day')
+            const { sender, content, chatId, attachments } = payload
+            await fetch("http://127.0.0.1:4000/api/v1/message", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                },
+                body: JSON.stringify({
+                    sender,
+                    content,
+                    attachments,
+                    chatId,
+                })
+            });
+        } catch (err) {
+            console.error("Lỗi khi fetch:", err);
+        }
+    }
+
 
     // ######################################################################
     // # UPDATE DURATION FOR STUDYTIME
@@ -294,22 +319,18 @@ export class RoomManager {
     }
 
     // ######################################################################
-    // # NEW MESSAGE AND UPDATE DATABASE
+    // # UPDATE CHAT STATUS (MESSAGE SEEN)
     // ######################################################################
-    async newMessageForDB(ws, payload) {
+    async updateChatMessageStatus(ws, chatId) {
         try {
-            const { sender, content, chatId, attachments } = payload
-            await fetch("http://127.0.0.1:4000/api/v1/message", {
-                method: "POST",
+            await fetch("http://127.0.0.1:4000/api/v1/chat/message/status", {
+                method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                     "Cookie": ws.data.cookie || ""
                 },
                 body: JSON.stringify({
-                    sender,
-                    content,
-                    attachments,
-                    chatId
+                    chatId,
                 })
             });
         } catch (err) {
