@@ -111,6 +111,15 @@ Bun.serve({
                             }
                         }
 
+                        roomManager
+                            .newMessageForDB(ws, {
+                                sender,
+                                content: message.content,
+                                attachments: message.attachments ?? [],
+                                chatId: data.chatId,
+                            })
+                            .catch(console.error);
+
                         break;
                     }
 

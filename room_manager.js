@@ -292,4 +292,28 @@ export class RoomManager {
             console.error("Lỗi khi fetch:", err);
         }
     }
+
+    // ######################################################################
+    // # NEW MESSAGE AND UPDATE DATABASE
+    // ######################################################################
+    async newMessageForDB(ws, payload) {
+        try {
+            const { sender, content, chatId, attachments } = payload
+            await fetch("http://127.0.0.1:4000/api/v1/message", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                },
+                body: JSON.stringify({
+                    sender,
+                    content,
+                    attachments,
+                    chatId
+                })
+            });
+        } catch (err) {
+            console.error("Lỗi khi fetch:", err);
+        }
+    }
 }
