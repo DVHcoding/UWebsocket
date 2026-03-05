@@ -112,8 +112,6 @@ Bun.serve({
                             }
                         }
 
-                        console.log(message.attachments)
-
                         roomManager
                             .newMessageForDB(ws, {
                                 sender,

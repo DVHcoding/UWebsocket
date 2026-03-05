@@ -253,7 +253,6 @@ export class RoomManager {
     // ######################################################################
     async newMessageForDB(ws, payload) {
         try {
-            console.log('vao day')
             const { sender, content, chatId, attachments } = payload
             await fetch("http://127.0.0.1:4000/api/v1/message", {
                 method: "POST",
