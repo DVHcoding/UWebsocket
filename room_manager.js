@@ -215,6 +215,27 @@ export class RoomManager {
     }
 
     // ######################################################################
+    // # SEND NOTIFICATION ALERT TO SPECIFIC USER
+    // ######################################################################
+    sendNotificataion(roomId, receiverId, payload) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        const entry = room.users.get(receiverId);
+        if (!entry) return;
+
+        const message = JSON.stringify({
+            type: CLIENT_EVENTS.NOTIFICATION,
+            payload
+        });
+
+        for (const socket of entry.sockets) {
+            socket.send(message);
+        }
+    }
+
+
+    // ######################################################################
     // # SEND TO SPECIFIC USER IN ROOM
     // ######################################################################
     sendToUser(roomId, userId, payload) {

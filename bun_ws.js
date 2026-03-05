@@ -215,6 +215,59 @@ Bun.serve({
 
 
                     // ##########################################################
+                    // # NOTIFICATION
+                    // # - Chỉ xử lý nếu socket đã join room
+                    // # - Yêu cầu có targetUserId
+                    // # - Gửi alert tới toàn bộ socket của user đó (multi-tab)
+                    // ##########################################################
+                    case CLIENT_EVENTS.NOTIFICATION: {
+                        const { roomId, payload } = data;
+                        const { receiverId, type, sender, content, relatedId } = payload ?? {};
+
+                        if (!roomId || !ws.rooms?.has(roomId)) return;
+                        if (!receiverId || !type || !sender || !content || !relatedId) return;
+                        if (sender._id === receiverId) return;
+
+                        const notificationForDb = {
+                            _id: crypto.randomUUID(),
+                            sender: sender._id,
+                            receiver: receiverId,
+                            content,
+                            type,
+                            relatedId,
+                            createdAt: new Date().toISOString(),
+                        };
+
+                        const notificationForRealTime = {
+                            _id: crypto.randomUUID(),
+                            sender: {
+                                _id: sender._id,
+                                username: sender.username,
+                                nickname: sender.nickname,
+                                photo: {
+                                    public_id: sender.photo.public_id,
+                                    url: sender.photo.url,
+                                },
+                            },
+                            receiver: receiverId,
+                            content,
+                            type,
+                            relatedId,
+                            isRead: false,
+                            createdAt: new Date().toISOString(),
+                        };
+
+                        roomManager.sendNotificataion(data.roomId, receiverId, notificationForRealTime);
+
+                        roomManager
+                            .newNotification(ws, notificationForDb)
+                            .catch(console.error);
+
+                        break;
+                    }
+
+
+                    // ##########################################################
                     // # REMOVE_USER
                     // # - Leave room
                     // ##########################################################
@@ -253,8 +306,6 @@ Bun.serve({
                         .catch(console.error);
                 }
             }
-
-            console.log('Client disconnected')
         }
     }
 });
