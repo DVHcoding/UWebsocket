@@ -256,7 +256,7 @@ export class RoomManager {
     // ######################################################################
     async newNotification(ws, data) {
         try {
-            await fetch("https://api.fluentez.com/api/v1/notification/new", {
+            await fetch("http://127.0.0.1:4000/api/v1/notification/new", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -275,7 +275,7 @@ export class RoomManager {
     async newMessageForDB(ws, payload) {
         try {
             const { sender, content, chatId, attachments } = payload
-            await fetch("https://api.fluentez.com/api/v1/message", {
+            await fetch("http://127.0.0.1:4000/api/v1/message", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -299,7 +299,7 @@ export class RoomManager {
     // ######################################################################
     async updateOnlineDuration(ws, userId, timestamp) {
         try {
-            await fetch("https://api.fluentez.com/api/v1/studytime", {
+            await fetch("http://127.0.0.1:4000/api/v1/studytime", {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -322,7 +322,7 @@ export class RoomManager {
     async updateUserStatus(ws, payload) {
         try {
             const { userId, lastOnline } = payload
-            await fetch("https://api.fluentez.com/api/v1/userstatus/lastonline", {
+            await fetch("http://127.0.0.1:4000/api/v1/userstatus/lastonline", {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -343,7 +343,7 @@ export class RoomManager {
     // ######################################################################
     async updateChatMessageStatus(ws, chatId) {
         try {
-            await fetch("https://api.fluentez.com/api/v1/chat/message/status", {
+            await fetch("http://127.0.0.1:4000/api/v1/chat/message/status", {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
