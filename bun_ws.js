@@ -124,6 +124,23 @@ Bun.serve({
                     }
 
                     // ##########################################################
+                    // # START_TYPING / STOP_TYPING
+                    // # - Chỉ forward tới members khác trong room (không gửi lại sender)
+                    // # - Không lưu DB, không notification
+                    // ##########################################################
+                    case CLIENT_EVENTS.START_TYPING:
+                    case CLIENT_EVENTS.STOP_TYPING: {
+                        if (!data.chatId || !ws.rooms?.has(data.chatId)) return;
+                        const payload = JSON.stringify({
+                            type: data.type,
+                            chatId: data.chatId,
+                        });
+
+                        ws.publish(data.chatId, payload);
+                        break;
+                    }
+
+                    // ##########################################################
                     // # CHECK_STATUS
                     // # - Kiểm tra xem receiver có online hay không 
                     // ##########################################################
