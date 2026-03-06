@@ -22,7 +22,10 @@ Bun.serve({
         // ######################################################################
         // # HTTP HANDLER + RATE LIMIT PER IP
         // ######################################################################
-        const ip = server.requestIP(req)?.address;
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+            || req.headers.get("x-real-ip")
+            || server.requestIP(req)?.address;
+
         if (!ip) return new Response("Forbidden", { status: 403 });
 
         if (!ipLimiter.allow(ip)) {
