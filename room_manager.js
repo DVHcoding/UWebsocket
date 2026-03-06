@@ -251,9 +251,23 @@ export class RoomManager {
     }
 
 
-    // ######################################################################
-    // # NEW NOTIFICATOIN
-    // ######################################################################
+    async getLastMessage(ws, chatId) {
+        try {
+            const res = await fetch(`http://127.0.0.1:4000/api/v1/chat/details/${chatId}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cookie": ws.data.cookie || ""
+                }
+            });
+            const data = await res.json();
+            return data?.chat?.lastMessage ?? null;
+        } catch (err) {
+            console.error(err);
+            return null;
+        }
+    }
+
     async newNotification(ws, data) {
         try {
             await fetch("http://127.0.0.1:4000/api/v1/notification/new", {
@@ -357,4 +371,7 @@ export class RoomManager {
             console.error("Lỗi khi fetch:", err);
         }
     }
+
+
+
 }

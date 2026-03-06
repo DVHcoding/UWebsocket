@@ -152,12 +152,14 @@ Bun.serve({
                         if (!data.chatId || !data.receiverId || !data.sender || !ws.rooms?.has(data.chatId)) return;
 
                         const isOnline = roomManager.isUserInRoom("global", data.receiverId);
+                        const lastMessage = await roomManager.getLastMessage(ws, data.chatId);
 
                         const payload = JSON.stringify({
                             type: CLIENT_EVENTS.CHECK_STATUS,
                             online_status: isOnline,
                             sender: data.sender,
-                            chatId: data.chatId
+                            chatId: data.chatId,
+                            lastMessage
                         });
 
                         ws.send(payload);
