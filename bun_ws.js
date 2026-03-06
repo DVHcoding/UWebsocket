@@ -170,10 +170,10 @@ Bun.serve({
                     // # CHECK_STATUS
                     // # - Kiểm tra xem receiver có online hay không 
                     // ##########################################################
-                    case CLIENT_EVENTS.SEEN_MESSAGE: {
-                        // ws chính là cái người nhận
+                    case CLIENT_EVENTS.SEEN_MESSAGE: { // ws chính là cái người nhận
                         if (!data.chatId || !ws.rooms?.has(data.chatId)) return;
                         if (!data.senderId) return;
+                        if (!data.should_seen) return;
 
                         const payload = JSON.stringify({
                             type: CLIENT_EVENTS.SEEN_MESSAGE,
@@ -184,6 +184,7 @@ Bun.serve({
                         });
 
                         ws.publish(data.chatId, payload)
+                        ws.send(payload)
 
                         setTimeout(() => {
                             roomManager
